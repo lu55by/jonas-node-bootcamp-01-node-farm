@@ -43,6 +43,6 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-    "noEmit": false
+    "noEmit": true
   }
 }

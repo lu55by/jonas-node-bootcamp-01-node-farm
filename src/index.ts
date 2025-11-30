@@ -44,27 +44,55 @@ const rootDir = path.join(__dirname, '..');
 // SERVER
 
 // Read the product data with fs.readFileSync at the top level
+const templateOverviewHtml: string = fs.readFileSync(`${rootDir}/templates/template-overview.html`, 'utf8');
+const templateCardHtml: string = fs.readFileSync(`${rootDir}/templates/template-card.html`, 'utf8');
+const templateProductHtml: string = fs.readFileSync(`${rootDir}/templates/template-product.html`, 'utf8');
 const productDataStr: string = fs.readFileSync(`${rootDir}/dev-data/data.json`, 'utf-8');
 const productsData: Product[] = JSON.parse(productDataStr);
-console.log('Read and parsed products data -> ', productsData);
+console.log('Read and parsed products data Len ->', productsData.length);
+
+function replaceHtmlContent(templateCard: string, product: Product) {
+    const {id, productName, image, organic, quantity, price} = product;
+    let rs: string = templateCard.replace(/{%ID%}/g, id.toString());
+    rs = rs.replace(/{%PRODUCT_NAME%}/g, productName);
+    rs = rs.replace(/{%PRODUCT_IMAGE%}/g, image);
+    rs = rs.replace(/{%NOT_ORGANIC%}/g, organic ? '' : 'not-organic');
+    rs = rs.replace(/{%PRODUCT_QUANTITY%}/g, quantity);
+    rs = rs.replace(/{%PRODUCT_PRICE%}/g, price);
+    return rs;
+}
 
 // Create server using http
 const server = http.createServer((req, res) => {
-    console.log('Request received.');
-    const pathName = req.url;
-    console.log('url -> ', pathName);
-    if (pathName === '/' || pathName === '/overview') {
-        res.end('Overview page');
-    } else if (pathName === '/product') {
-        res.end('Product page');
-    } else if (pathName === '/api') {
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.end(productDataStr);
-    } else {
-        res.writeHead(404, {'Content-Type': 'text/html', 'My-Custom-Header': 'value'});
-        res.end('<h1>Page Not Found!</h1>');
+    try {
+        console.log('Request received.');
+        const pathName = req.url;
+        console.log('url -> ', pathName);
+
+        if (pathName === '/' || pathName === '/overview') {
+            // Loop through and replace the specific placeholder in the templateCardHtml with read product obj props.
+            const templateCardsHtml: string = productsData.map((product: Product): string => replaceHtmlContent(templateCardHtml, product)).join('');
+            // Replace specific placeholder in the templateOverviewHtml with replaced templateCardsHtml
+            const replacedTemplateOverview: string = templateOverviewHtml.replace(/{%PRODUCT_CARDS%}/g, templateCardsHtml);
+
+            // Send the final html
+            res.writeHead(200, {'Content-Type': 'text/html'});
+            res.end(replacedTemplateOverview);
+
+        } else if (pathName === '/product') {
+            res.end('Product page');
+
+        } else if (pathName === '/api') {
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.end(productDataStr);
+
+        } else {
+            res.writeHead(404, {'Content-Type': 'text/html', 'My-Custom-Header': 'value'});
+            res.end('<h1>Page Not Found!</h1>');
+        }
+    } catch (e) {
+        console.error(e);
     }
-    res.end('Hello from server');
 });
 
 // Listen on port 8000
