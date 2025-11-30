@@ -3,6 +3,7 @@ import * as http from "node:http";
 import type {Product} from "./types/index.js";
 import {fileURLToPath} from 'url';
 import * as path from "node:path";
+import * as url from "node:url";
 
 const PORT = 8000;
 const __filename = fileURLToPath(import.meta.url);
@@ -51,14 +52,18 @@ const productDataStr: string = fs.readFileSync(`${rootDir}/dev-data/data.json`, 
 const productsData: Product[] = JSON.parse(productDataStr);
 console.log('Read and parsed products data Len ->', productsData.length);
 
-function replaceHtmlContent(templateCard: string, product: Product) {
-    const {id, productName, image, organic, quantity, price} = product;
-    let rs: string = templateCard.replace(/{%ID%}/g, id.toString());
+function replaceHtmlContent(template: string, product: Product | undefined) {
+    if (!product) return template;
+    const {id, productName, image, from, nutrients, quantity, price, organic, description} = product;
+    let rs: string = template.replace(/{%ID%}/g, id.toString());
     rs = rs.replace(/{%PRODUCT_NAME%}/g, productName);
     rs = rs.replace(/{%PRODUCT_IMAGE%}/g, image);
-    rs = rs.replace(/{%NOT_ORGANIC%}/g, organic ? '' : 'not-organic');
+    rs = rs.replace(/{%PRODUCT_FROM%}/g, from);
+    rs = rs.replace(/{%PRODUCT_NUTRIENTS%}/g, nutrients);
     rs = rs.replace(/{%PRODUCT_QUANTITY%}/g, quantity);
     rs = rs.replace(/{%PRODUCT_PRICE%}/g, price);
+    rs = rs.replace(/{%NOT_ORGANIC%}/g, organic ? '' : 'not-organic');
+    rs = rs.replace(/{%PRODUCT_DESC%}/g, description);
     return rs;
 }
 
@@ -66,8 +71,17 @@ function replaceHtmlContent(templateCard: string, product: Product) {
 const server = http.createServer((req, res) => {
     try {
         console.log('Request received.');
-        const pathName = req.url;
+
+        if (!req.url) return;
+
+        // Parse the req.url
+        const {pathname: pathName, query} = url.parse(req.url, true);
+        // console.log('Parsed url ->', parsedUrl);
+
+        // const pathName = req.url;
         console.log('url -> ', pathName);
+        console.log('query -> ', query);
+        console.log('query.id -> ', query.id);
 
         if (pathName === '/' || pathName === '/overview') {
             // Loop through and replace the specific placeholder in the templateCardHtml with read product obj props.
@@ -80,8 +94,20 @@ const server = http.createServer((req, res) => {
             res.end(replacedTemplateOverview);
 
         } else if (pathName === '/product') {
-            res.end('Product page');
-
+            if (query.id && productsData.length > 0) {
+                const id = +query.id;
+                let product: Product | undefined = undefined;
+                for (const p of productsData) {
+                    if (p.id === id) {
+                        product = p;
+                        break;
+                    }
+                }
+                console.log('Product to display ->', product);
+                const replacedTemplateProductHtml = replaceHtmlContent(templateProductHtml, product);
+                res.writeHead(200, {'Content-Type': 'text/html'});
+                res.end(replacedTemplateProductHtml);
+            }
         } else if (pathName === '/api') {
             res.writeHead(200, {'Content-Type': 'application/json'});
             res.end(productDataStr);
