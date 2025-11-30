@@ -36,6 +36,16 @@ import * as http from "node:http";
 // Create server using http
 const server = http.createServer((req, res) => {
     console.log('Request received.');
+    const pathName = req.url;
+    console.log('url -> ', pathName);
+    if (pathName === '/' || pathName === '/overview') {
+        res.end('Overview page');
+    } else if (pathName === '/product') {
+        res.end('Product page');
+    } else {
+        res.writeHead(404, {'Content-Type': 'text/html', 'My-Custom-Header': 'value'});
+        res.end('<h1>Page Not Found!</h1>');
+    }
     res.end('Hello from server');
 });
 
